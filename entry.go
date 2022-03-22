@@ -78,6 +78,7 @@ func NewEntry(logger *Logger) *Entry {
 	}
 }
 
+// Dup 拷贝
 func (entry *Entry) Dup() *Entry {
 	data := make(Fields, len(entry.Data))
 	for k, v := range entry.Data {
@@ -86,7 +87,7 @@ func (entry *Entry) Dup() *Entry {
 	return &Entry{Logger: entry.Logger, Data: data, Time: entry.Time, Context: entry.Context, err: entry.err}
 }
 
-// Returns the bytes representation of this entry from the formatter.
+// Bytes 根据指定的格式对数据进行格式化
 func (entry *Entry) Bytes() ([]byte, error) {
 	return entry.Logger.Formatter.Format(entry)
 }
@@ -102,33 +103,37 @@ func (entry *Entry) String() (string, error) {
 	return str, nil
 }
 
-// Add an error as single field (using the key defined in ErrorKey) to the Entry.
+// WithError 添加一个error字段
 func (entry *Entry) WithError(err error) *Entry {
 	return entry.WithField(ErrorKey, err)
 }
 
-// Add a context to the Entry.
+// WithContext 为Entry添加上下文
 func (entry *Entry) WithContext(ctx context.Context) *Entry {
+	// 数据拷贝
 	dataCopy := make(Fields, len(entry.Data))
 	for k, v := range entry.Data {
 		dataCopy[k] = v
 	}
+	// 返回新的entry
 	return &Entry{Logger: entry.Logger, Data: dataCopy, Time: entry.Time, err: entry.err, Context: ctx}
 }
 
-// Add a single field to the Entry.
+// WithField 为Entry添加字段
 func (entry *Entry) WithField(key string, value interface{}) *Entry {
 	return entry.WithFields(Fields{key: value})
 }
 
-// Add a map of fields to the Entry.
+// WithFields 为entry添加多个字段
 func (entry *Entry) WithFields(fields Fields) *Entry {
+	// 数据拷贝
 	data := make(Fields, len(entry.Data)+len(fields))
 	for k, v := range entry.Data {
 		data[k] = v
 	}
 	fieldErr := entry.err
 	for k, v := range fields {
+		// 判断字段类型是否为函数、指针
 		isErrField := false
 		if t := reflect.TypeOf(v); t != nil {
 			switch {
@@ -147,10 +152,11 @@ func (entry *Entry) WithFields(fields Fields) *Entry {
 			data[k] = v
 		}
 	}
+	// 返回新的entry
 	return &Entry{Logger: entry.Logger, Data: data, Time: entry.Time, err: fieldErr, Context: entry.Context}
 }
 
-// Overrides the time of the Entry.
+// WithTime 重置entry创建时间
 func (entry *Entry) WithTime(t time.Time) *Entry {
 	dataCopy := make(Fields, len(entry.Data))
 	for k, v := range entry.Data {
@@ -160,7 +166,7 @@ func (entry *Entry) WithTime(t time.Time) *Entry {
 }
 
 // getPackageName reduces a fully qualified function name to the package name
-// There really ought to be to be a better way...
+// There really ought to be a better way...
 func getPackageName(f string) string {
 	for {
 		lastPeriod := strings.LastIndex(f, ".")
@@ -222,12 +228,13 @@ func (entry *Entry) log(level Level, msg string) {
 	var buffer *bytes.Buffer
 
 	newEntry := entry.Dup()
-
+	// 默认日志创建时间
 	if newEntry.Time.IsZero() {
 		newEntry.Time = time.Now()
 	}
-
+	// 日志等级
 	newEntry.Level = level
+	// 日志内容
 	newEntry.Message = msg
 
 	newEntry.Logger.mu.Lock()
